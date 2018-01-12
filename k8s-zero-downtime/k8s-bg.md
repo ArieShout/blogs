@@ -245,8 +245,20 @@ and click the button **Deploy to Azure** to get the working demo. This template 
    * A production service endpoint (`tomcat-service`) which represents the public endpoint that the users will access. 
       Initially it is routing to the blue environment.
 * A Jenkins master running on a Ubuntu 16.04 VM, with the Azure service principal credentials configured. With two jobs:
-   * **Pipeline AKS Kubernetes Blue-green Deployment** to demonstrate the blue/green deployment to AKS.
-   * **Pipeline AKS Kubernetes RollingUpdate** to demonstrate the Rolling Update deployment to AKS.
+   * **AKS Kubernetes Rolling Update Deployment** pipeline to demonstrate the Rolling Update deployment to AKS.
+   * **AKS Kubernetes Blue/green Deployment** pipeline to demonstrate the blue/green deployment to AKS.
+
+      We didn't include the email confirmation step in the quickstart template. To add that, you need to configure the email SMTP
+      server details in the Jenkins system configuration, and then add a Pipeline stage before `Switch`:
+
+      ```groovy
+      stage('Confirm') {
+          mail (to: 'to@example.com',
+              subject: "Job '${env.JOB_NAME}' (${env.BUILD_NUMBER}) is waiting for input",
+              body: "Please go to ${env.BUILD_URL}.")
+          input 'Ready to go?'
+      }
+      ```
 
 Follow the [Steps](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green#steps)
 to setup the resources and you can try it out by start the Jenkins build jobs.
