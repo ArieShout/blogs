@@ -194,10 +194,60 @@ As compared to Rolling Update, the blue/green update
 
 ## Jenkins Automation
 
-Use of plugins
-Deployment steps mapped to Pipeline stages
+Jenkins provides easy to setup workflow to automate your deployments. With the [Pipeline](https://jenkins.io/doc/book/pipeline/)
+support, it is flexible to build the zero-downtime deployment workflow, and visualize the deployment steps.
+
+To facilitate the deployment process of the Kubernetes resources, we published the [Kubernetes Continuous Deploy](https://plugins.jenkins.io/kubernetes-cd)
+and the [Azure Container Service](https://plugins.jenkins.io/azure-acs) plugin built based on the [kubernetes-client](https://github.com/fabric8io/kubernetes-client).
+You can deploy the resource to Azure Kubernetes Service (AKS) or the general Kubernetes cluster without the need of `kubectl`,
+and it supports variable substitution in the resource config so that you can deploy environment specific resources to the clusters
+without updating the resource config.
+
+We created a Jenkins Pipeline to demonstrate the blue/green deployment to AKS. The flow is like the following:
+
+![AKS Blue/green Deployment Pipeline](img/aks-blue-green-pipeline.png)
+
+1. **Pre-clean**: clean workspace.
+1. **SCM**: pulling code from the source control management system.
+1. **Prepare Image**: prepare the application docker images and upload them to some Docker repository.
+1. **Check Env**: determine the active & inactive environment, which drives the following deployment.
+1. **Deploy**: deploy the new application resource configuration to the inactive environment. With the **Azure Container Service**
+   plugin, this can be done with:
+
+   ```groovy
+   acsDeploy azureCredentialsId: 'stored-azure-credentials-id',
+             configFilePaths: "glob/path/to/*/resource-config-*.yml",
+             containerService: "aks-name | AKS",
+             resourceGroupName: "resource-group-name",
+             enableConfigSubstitution: true
+   ```
+1. **Verify Staged**: verify the deployment to the inactive environment to ensure it is working properly. Again, note this
+   is in production environment, be aware not to pollute the application data during the tests.
+1. **Confirm**: Optionally, send email notifications for manual user approval to proceed the actual environment switch.
+1. **Switch**: Switch the frontend service endpoint routing to the inactive environment. This is just another service deployment
+   to the AKS Kubernetes cluster.
+1. **Verify Prod**: verify the frontend service endpoint is working properly with the new environment.
+1. **Post-clean**: do some post clean on the temporary files.
+
+For the Rolling Update, just deploy the deployment configuration to the Kubernetes cluster, which is just a straight forward,
+single step.
 
 ## Put It All Together
 
-Quickstart template
+We built a quickstart template on Azure to demonstrate how we can do the zero-downtime deployment to AKS (Kubernetes) with
+Jenkins. Go to [Jenkins Blue-Green Deployment on Kubernetes](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green)
+and click the button **Deploy to Azure** to get the working demo. This template will
 
+* An AKS cluster, with the following resources:
+   * Two similar deployments representing the environment blue and green. Both are initially setup with the `tomcat:7` image.
+   * Two test endpoint services (`tomcat-test-blue` and `tomcat-test-green`), which are connected to the corresponding
+      deployments, and can be use to test if the deployments are ready for production use.
+   * A production service endpoint (`tomcat-service`) which represents the public endpoint that the users will access. 
+      Initially it is routing to the blue environment.
+* A Jenkins master running on a Ubuntu 16.04 VM, with the Azure service principal credentials configured. With two jobs:
+   * **Pipeline AKS Kubernetes Blue-green Deployment** to demonstrate the blue/green deployment to AKS.
+   * **Pipeline AKS Kubernetes RollingUpdate** to demonstrate the Rolling Update deployment to AKS.
+
+Follow the [Steps](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green#steps)
+to setup the resources and you can try it out by start the Jenkins build jobs.
+   
