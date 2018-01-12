@@ -8,8 +8,8 @@ Although it's based on Azure, the concept could be applied to general Kubernetes
 
 ## Rolling Update
 
-Kubernetes supports `RollingUpdate` strategy which replace the old pods with new ones gradually while
-serving the clients without downtime. To perform RollingUpdate deployment,
+`RollingUpdate` strategy in Kuburnetes provides support to replace the old pods with new ones gradually while
+serving the clients without any downtime. To perform RollingUpdate deployment,
 1. set `.spec.strategy.type` to `RollingUpdate`, which is the default value.
 1. set `.spec.strategy.rollingUpdate.maxUnavailable` and `.spec.strategy.rollingUpdate.maxSurge` to some reasonable value.
    * `maxUnavailable`: the maximum number of Pods that can be unavailable during the update process. Can be absolute
@@ -50,43 +50,40 @@ spec:
       maxSurge: 50%
 ```
 
-If the Tomcat running in the current deployments are version 7, and we can replace `${TOMCAT_VERSION}` with 8 and apply
+If the Tomcat running in the current deployments is version 7, and we replace `${TOMCAT_VERSION}` with 8 and apply
 this to the Kubernetes cluster. With [Kubernetes Continuous Deploy](https://plugins.jenkins.io/kubernetes-cd) or
 the [Azure Container Service](https://plugins.jenkins.io/azure-acs) plugin, the value can be fetched from environment
 variable which eases the deployment process.
 
-Under the scene, Kubernetes manages the update like the following:
+Under the hood, Kubernetes manages the update like the following:
 
 ![Kubernetes Rolling Update](img/k8s-rolling.png)
 
 1. Initially, all pods are running Tomcat 7 and the frontend Service routes the traffic to these pods.
-1. During the rolling update, Kubernetes takes down some Tomcat 7 pods and create some new Tomcat 8 pods. It ensures:
+1. During rolling update, Kubernetes takes down some Tomcat 7 pods and create new Tomcat 8 pods. It ensures:
 
    * at most `maxUnavailable` pods in the desired Pods can be unavailable, that is, at least 
       (`replicas` - `maxUnavailable`) pods should be serving the client traffic, which is `2-1=1` in our case.
    * at most `maxSurge` more pods can be created during the update process, that is `2*50%=1` in our case.
 
-   One Tomcat 7 Pod is taken down, and one Tomcat 8 Pod is created. Kubernetes will not route the traffic to any of them
+   This means with every one Tomcat 7 Pod taken down, one Tomcat 8 Pod is created. Kubernetes will not route the traffic to any of them
    because their readiness probe is not successful.
 1. When the new Tomcat 8 Pod is ready as determined by the readiness probe, Kubernetes will start routing the traffic to it.
    This means during the update process, user may see both the old service and the new service.
-1. The rolling updates continues by taking down Tomcat 7 Pods and create Tomcat 8 pods, and route the traffic to the ready
-   Pods.
+1. The rolling updates continues by taking down Tomcat 7 Pods and create Tomcat 8 pods, and route the traffic to the Pods that are ready.
 1. Finally, all Pods are on Tomcat 8.
 
-Rolling Update ensures we always have some **Ready** backend Pods serving the client requests, so there's no service
-downtime. However, there's also some issues that needs extra care:
+Rolling Update ensures we always have some **Ready** backend Pods serving the clients requests, so there is no service
+downtime. However, there are some issues that requires further consideration:
 
-1. During the update, both the old Pods and new Pods may serve the requests. Without well defined session affinity in the
+1. During the update, both the old Pods and new Pods may serve clients requests. Without well defined session affinity in the
    Service layer, a user may be routed to the new Pods and later back to the old Pods.
 
-   This also requires us to maintain well defined forward & backward compatibility on both data and API, which is difficult
-   generally.
-1. It may take a long time before a Pod is ready for traffic after it is started. There may be a long time window where the
-   traffic is served with less backend Pods than usual. Generally, this should not be a problem as we tend to do the production
+   This also requires us to maintain well defined forward & backward compatibility on both data and API, which is generally difficult.
+1. It may take a long time before a Pod is ready for traffic after it is started. There may be a long period of time when traffic is served with less backend Pods than usual. Generally, this should not be a problem provided we do the production
    upgrade when the service is not busy. But this will also extend the time window for issue 1.
-1. We cannot do comprehensive tests for the new Pods being created. Moving the products from dev / QA environment to production
-   environment is always a big risk of breaking the current production functionality. The readiness probe can do some work to
+1. We cannot do comprehensive tests for the new Pods. Moving from dev / QA environment to production
+   environment always risks breaking the current production functionality. The readiness probe can do some work to
    check the readiness, however, it should be a light loaded task that can be run periodically and not suitable to be used 
    as an entrance to start the complete tests.
 
