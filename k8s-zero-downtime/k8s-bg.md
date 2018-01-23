@@ -8,7 +8,7 @@ Although it's based on Azure, the concept could be applied to general Kubernetes
 
 ## Rolling Update
 
-Kubernetes supports `RollingUpdate` strategy which replace the old pods with new ones gradually while
+Kubernetes supports `RollingUpdate` strategy that replaces old pods with new ones gradually while
 serving the clients without downtime. To perform RollingUpdate deployment,
 1. set `.spec.strategy.type` to `RollingUpdate`, which is the default value.
 1. set `.spec.strategy.rollingUpdate.maxUnavailable` and `.spec.strategy.rollingUpdate.maxSurge` to some reasonable value.
