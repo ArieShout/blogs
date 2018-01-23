@@ -87,7 +87,7 @@ downtime. However, some extra care is required:
    upgrade when the service is not busy. But this will also extend the time window for issue 1.
 1. We cannot do comprehensive tests for the new Pods being created. Moving the products from dev / QA environment to production
    environment is always a big risk of breaking the current production functionality. The readiness probe can do some work to
-   check the readiness, however, it should be a light weight task that can be run periodically and not suitable to be used 
+   check the readiness, however, it should be a lightweight task that can be run periodically and not suitable to be used 
    as an entry point to start the complete tests.
 
 ## Blue/green Deployment
