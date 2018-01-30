@@ -1,23 +1,23 @@
 # Zero-downtime Deployment in Kubernetes with Jenkins
 
 "How do I do zero-downtime deployment" is a frequently asked question ever since we added
-the [Kubernetes Continuous Deploy](https://plugins.jenkins.io/kubernetes-cd) and
-the [Azure Container Service](https://plugins.jenkins.io/azure-acs) plugins in the Jenkins update center.
-To get the PM off my back, we created a quickstart template on Azure to demonstration how we can do that. 
+the [Kubernetes Continuous Deploy](https://aka.ms/azjenkinsk8s) and
+the [Azure Container Service](https://aka.ms/azjenkinsacs) plugins in the Jenkins update center.
+So we created a quickstart template on Azure to demonstration how we can do that. 
 Although it's based on Azure, the concept could be applied to general Kubernetes cluster.
 
 ## Rolling Update
 
-Kubernetes supports `RollingUpdate` strategy which replace the old pods with new ones gradually while
+Kubernetes supports `RollingUpdate` strategy that replaces old pods with new ones gradually while
 serving the clients without downtime. To perform RollingUpdate deployment,
 1. set `.spec.strategy.type` to `RollingUpdate`, which is the default value.
 1. set `.spec.strategy.rollingUpdate.maxUnavailable` and `.spec.strategy.rollingUpdate.maxSurge` to some reasonable value.
    * `maxUnavailable`: the maximum number of Pods that can be unavailable during the update process. Can be absolute
-      number or percentage of the `replicas` count, default to 25%.
+      number or percentage of the `replicas` count; default is 25%.
    * `maxSurge`: the maximum number of Pods that can be created over the desired number of Pods. Can be absolute number
-      or percentage of the `replicas` count, default to 25%.
-1. configure the `readinessProbe` for your service container, to help Kubernetes determine the state of the Pods.
-   Kubernetes will only route the client traffic to the Pods whose liveness probe is successful.
+      or percentage of the `replicas` count; default is 25%.
+1. configure the `readinessProbe` for your service container to help Kubernetes determine the state of the Pods.
+   Kubernetes will only route the client traffic to the Pods with healthy liveness probe.
 
 We use deployment of the official Tomcat image to demonstrate this:
 
@@ -51,8 +51,8 @@ spec:
 ```
 
 If the Tomcat running in the current deployments are version 7, and we can replace `${TOMCAT_VERSION}` with 8 and apply
-this to the Kubernetes cluster. With [Kubernetes Continuous Deploy](https://plugins.jenkins.io/kubernetes-cd) or
-the [Azure Container Service](https://plugins.jenkins.io/azure-acs) plugin, the value can be fetched from environment
+this to the Kubernetes cluster. With the [Kubernetes Continuous Deploy](https://aka.ms/azjenkinsk8s) or
+the [Azure Container Service](https://aka.ms/azjenkinsacs) plugin, the value can be fetched from environment
 variable which eases the deployment process.
 
 Under the scene, Kubernetes manages the update like the following:
@@ -75,7 +75,7 @@ Under the scene, Kubernetes manages the update like the following:
 1. Finally, all Pods are on Tomcat 8.
 
 Rolling Update ensures we always have some **Ready** backend Pods serving the client requests, so there's no service
-downtime. However, there's also some issues that needs extra care:
+downtime. However, some extra care is required:
 
 1. During the update, both the old Pods and new Pods may serve the requests. Without well defined session affinity in the
    Service layer, a user may be routed to the new Pods and later back to the old Pods.
@@ -87,8 +87,8 @@ downtime. However, there's also some issues that needs extra care:
    upgrade when the service is not busy. But this will also extend the time window for issue 1.
 1. We cannot do comprehensive tests for the new Pods being created. Moving the products from dev / QA environment to production
    environment is always a big risk of breaking the current production functionality. The readiness probe can do some work to
-   check the readiness, however, it should be a light loaded task that can be run periodically and not suitable to be used 
-   as an entrance to start the complete tests.
+   check the readiness, however, it should be a lightweight task that can be run periodically and not suitable to be used 
+   as an entry point to start the complete tests.
 
 ## Blue/green Deployment
 
@@ -186,7 +186,7 @@ deployment in Kubernetes can be done as followed:
 As compared to Rolling Update, the blue/green update
 
 * Does not rely on the update strategy of a specific backend environment, either `RollingUpdate` or `Recreate` will do.
-* The public service is either routed to the old applications, or new applications, but never both.
+* The public service is either routed to the old applications, or new applications, but never both at the same time.
 * The time it takes for the new Pods to be ready does not affect the public service quality, as the traffic will only be
    routed to the new Pods when all of them are tested to be ready.
 * We can do comprehensive tests on the new environment before it serves the public traffic. Just keep in mind this is in
@@ -197,8 +197,8 @@ As compared to Rolling Update, the blue/green update
 Jenkins provides easy to setup workflow to automate your deployments. With the [Pipeline](https://jenkins.io/doc/book/pipeline/)
 support, it is flexible to build the zero-downtime deployment workflow, and visualize the deployment steps.
 
-To facilitate the deployment process of the Kubernetes resources, we published the [Kubernetes Continuous Deploy](https://plugins.jenkins.io/kubernetes-cd)
-and the [Azure Container Service](https://plugins.jenkins.io/azure-acs) plugin built based on the [kubernetes-client](https://github.com/fabric8io/kubernetes-client).
+To facilitate the deployment process of the Kubernetes resources, we published the [Kubernetes Continuous Deploy](https://aka.ms/azjenkinsk8s) and
+the [Azure Container Service](https://aka.ms/azjenkinsacs) plugins built based on the [kubernetes-client](https://github.com/fabric8io/kubernetes-client).
 You can deploy the resource to Azure Kubernetes Service (AKS) or the general Kubernetes cluster without the need of `kubectl`,
 and it supports variable substitution in the resource config so that you can deploy environment specific resources to the clusters
 without updating the resource config.
@@ -235,8 +235,8 @@ single step.
 ## Put It All Together
 
 We built a quickstart template on Azure to demonstrate how we can do the zero-downtime deployment to AKS (Kubernetes) with
-Jenkins. Go to [Jenkins Blue-Green Deployment on Kubernetes](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green)
-and click the button **Deploy to Azure** to get the working demo. This template will
+Jenkins. Go to [Jenkins Blue-Green Deployment on Kubernetes](https://aka.ms/azjenkinsk8sqs)
+and click the button **Deploy to Azure** to get the working demo. This template will provision:
 
 * An AKS cluster, with the following resources:
    * Two similar deployments representing the environment blue and green. Both are initially setup with the `tomcat:7` image.
@@ -244,7 +244,7 @@ and click the button **Deploy to Azure** to get the working demo. This template 
       deployments, and can be use to test if the deployments are ready for production use.
    * A production service endpoint (`tomcat-service`) which represents the public endpoint that the users will access. 
       Initially it is routing to the blue environment.
-* A Jenkins master running on a Ubuntu 16.04 VM, with the Azure service principal credentials configured. With two jobs:
+* A Jenkins master running on a Ubuntu 16.04 VM, with the Azure service principal credentials configured. The Jenkins instance has two sample jobs:
    * **AKS Kubernetes Rolling Update Deployment** pipeline to demonstrate the Rolling Update deployment to AKS.
    * **AKS Kubernetes Blue/green Deployment** pipeline to demonstrate the blue/green deployment to AKS.
 
@@ -262,4 +262,3 @@ and click the button **Deploy to Azure** to get the working demo. This template 
 
 Follow the [Steps](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green#steps)
 to setup the resources and you can try it out by start the Jenkins build jobs.
-   
