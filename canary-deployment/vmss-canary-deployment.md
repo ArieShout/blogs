@@ -207,12 +207,12 @@ instance_id="$(az vmss list-instances --resource-group "$resource_group" --name 
 az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" --instance-ids "$instance_id"
 # (optional) check the latest model applied status
 az vmss list-instances --resource-group "$resource_group" --name "$vmss_name" | grep latest
-#    "latestModelApplied": true,
-#    "latestModelApplied": false,
-#    "latestModelApplied": false,
+#>>    "latestModelApplied": true,
+#>>    "latestModelApplied": false,
+#>>    "latestModelApplied": false,
 ```
 
-Check visit the load balancer public endpoint and we should see the old version and new version interleaved.
+Check the load balancer public endpoint and we should see the old version and new version interleaved.
 
 ```sh
 curl -s "$lb_ip" | grep title
@@ -225,8 +225,11 @@ curl -s "$lb_ip" | grep title
 #>> <title>Welcome to nginx!</title>
 ```
 
-Now you can do more checks to verify if the new version works as expected. If you need to test the updated instance specifically,
-you can open an tunnel through the SSH channel, and check the service in detail.
+Now you can do more checks to verify if the new version works as expected. Note that the VMSS sits behind the frontend
+load balancer, **you do not know the service status for a individual node through the public access point**. If you need
+to check a specific instance, you can SSH login to the that instance through the NAT mapping defined in the load balancer
+and check the service in the SSH session; or you can open an tunnel to the remote service through the SSH channel,
+and check the service in detail through the local port.
 
 ```sh
 # obtain the NAT SSH port for the updated instance
@@ -265,3 +268,176 @@ az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" 
 
 In this way, only a small amount of instances are being updated at a given point of time. The rest of the instances are not
 touched and will serve the traffic together.
+
+### Work with Image Based Canary Deployment
+
+The above steps demonstrates how we can do canary deployments for VMSS using the custom script extension. VMSS also supports
+custom images, and if specified, all the VM will be created from the given image. Compared to the custom script extension based
+VMSS, the image based VMSS:
+
+* Provisions faster: the service creation and configuration is done at the image creation process, and when VMSS needs to provision
+   new instance, it creates the VM from that image. It doesn't need to execute extra scripts after the VM provision. (Although you
+   can still add a custom script extension if needed.)
+* Service and dependency versions are more stable. The service and dependencies are fetched when the image is created, and all the
+   VMs created from the image get the same binaries. If working with custom script extension, you need to be careful if the service
+   or dependencies is upgraded during the VMSS scaling.
+
+[Packer](https://www.packer.io/docs/builders/azure.html) is widely used to create OS images in different cloud platforms. Consider
+if we need to transform the above custom script extension based deployments to image based, we can create the base image using
+the following packer configuration (filename: `packer-nginx.json`):
+
+```json
+{
+    "variables": {
+        "client_id": null,
+        "client_secret": null,
+        "subscription_id": null,
+        "tenant_id": null,
+
+        "resource_group": null,
+        "location": null,
+
+        "vm_size": "Standard_DS2_v2"
+    },
+
+    "builders": [
+        {
+            "type": "azure-arm",
+
+            "client_id": "{{user `client_id`}}",
+            "client_secret": "{{user `client_secret`}}",
+            "subscription_id": "{{user `subscription_id`}}",
+            "tenant_id": "{{user `tenant_id`}}",
+
+            "managed_image_resource_group_name": "{{user `resource_group`}}",
+            "managed_image_name": "nginx-base-image",
+
+            "os_type": "Linux",
+            "image_publisher": "Canonical",
+            "image_offer": "UbuntuServer",
+            "image_sku": "16.04-LTS",
+
+            "location": "{{user `location`}}",
+            "vm_size": "{{user `vm_size`}}"
+        }
+    ],
+
+    "provisioners": [
+        {
+            "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E sh '{{ .Path }}'",
+            "inline": [
+                "apt-get update",
+                "apt-get dist-upgrade -y",
+                "apt-get install -y nginx",
+                "/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync"
+            ],
+            "inline_shebang": "/bin/sh -x",
+            "type": "shell"
+        }
+    ]
+}
+```
+
+and build it with
+
+```sh
+packer build \
+  -var "client_id=$your_service_principal_id" \
+  -var "client_secret=$your_service_principal_key" \
+  -var "subscription_id=$your_subscription_id" \
+  -var "tenant_id=$your_tenant_id" \
+  -var "resource_group=$resource_group" \
+  -var "location=$location" \
+  packer-nginx.json
+```
+
+When this completes, we will get an image `nginx-base-image` in the resource group specified. Similarly, we can
+create the updated image (`nginx-updated-image`) by adding the following line to the provisioners script, updating
+the `managed_image_name` to `nginx-updated-image` and build the image.
+
+```sh
+sed -i -e 's/Welcome to nginx/Welcome to nginx on Azure VMSS/' /var/www/html/index*.html
+```
+
+After that we can get the VMSS image ID for the base image and the updated one:
+
+```sh
+base_image_id="$(az image show --resource-group "$resource_group" --name nginx-base-image --query id --output tsv)"
+export updated_image_id="$(az image show --resource-group "$resource_group" --name nginx-updated-image --query id --output tsv)"
+```
+
+Now that we have two images, we can do the canary deployment as followed:
+
+1. Initially, we need to speicify the base image ID when we create the VMSS:
+
+   ```sh
+   # create the VMSS with 3 instances using the public Ubuntu LTS image
+   az vmss create --resource-group "$resource_group" --name "$vmss_name" \
+       --image "$base_image_id" \
+       --admin-username "$admin_user" \
+       --ssh-key-value "$ssh_pubkey" \
+       --vm-sku Standard_D2_v3 \
+       --instance-count 3 \
+       --lb "${vmss_name}LB"
+   ```
+
+2. When we deploy new release, we update the image in VMSS configuration:
+
+   ```sh
+   az vmss update --resource-group "$resource_group" --name "$vmss_name" --set "virtualMachineProfile.storageProfile.imageReference.id=$updated_image_id"
+   ```
+
+3. Now we can selectively update certain instance to using the latest image with command `az vmss update-instances`, or upgrade
+   all instances with `--instance-ids` setting to `*`.
+
+   ```sh
+   # pick up the first instance ID
+   instance_id="$(az vmss list-instances --resource-group "$resource_group" --name "$vmss_name" --query '[].instanceId' --output tsv | head -n1)"
+   # update the instance VM
+   az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" --instance-ids "$instance_id"
+   ```
+
+## Canary Deployment with Jenkins
+
+In canary deployment we may roll out new releases to the servers gradually, which may involve multiple deployments
+that updates the old releases / new releases server ratio. This may not be suitable to automate in limited number
+of Jenkins jobs.
+
+However, if we simplify the process a bit so that the process becomes restrained and standardized, and we can model
+the process with parameterized Jenkins jobs. We have published [Azure Virtual Machine Scale Set](https://plugins.jenkins.io/azure-vmss)
+Jenkins plugin which helps to deploy new images to VMSS.
+
+The above image based canary deployment can be modeled as two Jenkins Pipeline jobs:
+
+* Deploy to a subset of instances
+
+   ```groovy
+   node {
+       // ...
+
+       stage('Update Image Configuration') {
+          azureVMSSUpdate azureCredentialsId: '<azure-credential-id>', resourceGroup: env.resource_group, name: env.vmss_name,
+                          imageReference: [id: env.updated_image_id]
+       }
+
+       stage('Update A Subset of Instances') {
+          azureVMSSUpdateInstances azureCredentialsId: '<azure-credential-id>', resourceGroup: env.resource_group, name: env.vmss_name,
+                                   instanceIds: '0,1'
+       }
+
+       // ...
+   }
+   ```
+
+* Upgrade all the rest instances to the latest image
+
+   ```groovy
+   node {
+      stage('Update All Instances') {
+          azureVMSSUpdateInstances azureCredentialsId: '<azure-credential-id>', resourceGroup: env.resource_group, name: env.vmss_name,
+                                   instanceIds: '*'
+      }
+   }
+   ```
+
+As mentioned in the previous example, you need to implement extra logic to test and validate if the new image is working properly.
