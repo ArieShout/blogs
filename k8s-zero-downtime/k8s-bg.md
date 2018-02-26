@@ -260,5 +260,5 @@ and click the button **Deploy to Azure** to get the working demo. This template 
       }
       ```
 
-Follow the [Steps](https://github.com/ArieShout/azure-quickstart-templates/tree/blue-green/301-jenkins-k8s-blue-green#steps)
+Follow the [Steps](https://github.com/Azure/azure-quickstart-templates/tree/master/301-jenkins-aks-zero-downtime-deployment#steps)
 to setup the resources and you can try it out by start the Jenkins build jobs.
