@@ -192,7 +192,7 @@ We created a Jenkins Pipeline to demonstrate the blue/green deployment to AKS. T
 
 ![AKS Blue/green Deployment Pipeline](img/aks-blue-green-pipeline.png)
 
-1. **Pre-clean**: lean workspace.
+1. **Pre-clean**: clean workspace.
 1. **SCM**: pulling code from the source control management system.
 1. **Prepare Image**: prepare the application docker images and upload them to some Docker repository.
 1. **Check Env**: determine the active and inactive environment, which drives the following deployment.
