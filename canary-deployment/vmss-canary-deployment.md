@@ -8,13 +8,9 @@ Virtual machine scale sets (VMSS) are an Azure compute resource that you can use
 With all VMs configured the same, scale sets are designed to support true autoscale, and no pre-provisioning of VMs 
 is required. So it's easier to build large-scale services that target big compute, large data, and containerized workloads.
 
-VMSS allow you to manage large amounts of identical VMs with simple instructions, yet allow you to update every single VM
-along. You can build your VMSS with a customized image or publicly available OS images, and some VM extension scripts so that
-they will be executed after the provision of the VM and setup all required environments. When it comes to update existing
-VMSS, you need to update its configuration with new image or extension scripts, and then manually trigger the update of the
-VMSS instances, either all in one instruction, or selectively pick some VMs to be updated.
+VMSS allow you to manage large number of identical VMs with simple instructions, yet allow you to update specific VM. You can build your VMSS with a customized image or publicly available OS images along with VM extension scripts to setup all required environments. When it comes to update existing VMSS, you need to update its configuration with a new image or extension scripts, and then manually trigger the update of the VMSS instances, either all in one instruction, or selectively pick some VMs to be updated.
 
-The ability to update individual VMs in VMSS allows us to control the amount of VMs that will be updated to the new releases,
+The ability to update individual VMs in VMSS allows us to control the number of VMs that will be updated to the new releases,
 i.e., allows us to do canary deployment:
 
 1. (Existing) Create the initial VMSS which hosts your services.
@@ -31,12 +27,12 @@ Here we demonstrate the canary deployment for VMSS using the Nginx binary releas
 ### Prepare the VMSS
 
 We use the public Ubuntu Server 16.04 LTS together with an extension script which installs the Nginx service to setup the
-VMSS. In your project, you can customize the extension script to install the service on your demand, or create a customized
+VMSS. In your project, you can customize the extension script to install the service on demand, or create a customized
 image (reference: [Packer / Azure Resource Manager Builder](https://www.packer.io/docs/builders/azure.html)).
 
 #### Prepare variable configurations
 
-First we setup some variables that will be used in the following preparation steps. You need to update them on your demand.
+First we setup some variables that will be used in the following preparation steps. You can update the variables based on your needs.
 
 ```sh
 # resource group and VMSS name
@@ -75,7 +71,7 @@ In order to use the custom script extension to configure the VMSS, we need to st
 via HTTP(s). Here we create a storage account for the script storage, and expose the scripts publicly to allow the script extension
 to pick it up.
 
-The custom script is fairly simple in this case. It just install the Nginx package from the Ubuntu Apt source. In your project,
+The custom script is fairly simple in this case. It installs the Nginx package from the Ubuntu Apt source. In your project,
 you may update the script to fetch dependencies, install, configure and start services, etc.
 
 ```sh
@@ -156,10 +152,10 @@ curl -s "$lb_ip" | grep title
 
 ### Deploy New Release in Canary Deployment Pattern
 
-In the new release we update the Nginx landing page a bit, and deploy it to 1 instance in the early stage. So after the
+In the new release, we make a simple update in the Nginx landing page, and deploy it to 1 instance in the early stage. So after the
 deployment, we should have 1 instance serving the updated landing page, and 2 instances serving the original page.
 
-First, we need to update and upload the new custom script. Some points to be aware here:
+First, we need to update and upload the new custom script. Some points to call out here:
 
 * The custom script will be executed on a fresh VM after it is created from the given OS image. It is not an incremental
    update process based on the existing VM. So we need to install all the dependencies and services again,
@@ -238,7 +234,7 @@ ssh_port="$(az network lb inbound-nat-rule show --resource-group "$resource_grou
 ssh -L localhost:8080:localhost:80 -p "$ssh_port" azureuser@"$lb_ip"
 ```
 
-After this you can visit the web page through `http://localhost:8080` and it will show you the page served by the updated instance.
+After this, you can visit the web page through `http://localhost:8080` and it will show you the page served by the updated instance.
 
 ### Complete the Release of the New Version
 
@@ -249,13 +245,13 @@ When you have verified that the new version works, you can update the rest of th
 az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" --instance-ids \*
 ```
 
-Note that this will update all the instances whose model is not aligned with the latest state, in parallel. So all the outdated
+Note that this will update all the instances with models not aligned with the latest state in parallel. So all the outdated
 instances will be brought down, updated, and brought up again. It will not cause service downtime as long as the load balancer noticed
 some of the backends are down, as we have at least 1 instance updated in the previous steps. However, during the update window of
 the outdated instances, all the client traffic will be routed to up-to-date instances, which will increase the load and latency
 on those instances.
 
-The better approach may be querying the outdated instances list first, and then update them with smaller granularity:
+A better approach may be querying the outdated instances list first, and then update them with smaller granularity:
 
 ```sh
 az vmss list-instances --resource-group "$resource_group" --name "$vmss_name" --query '[?latestModelApplied==`false`].instanceId' --output tsv
@@ -266,13 +262,13 @@ az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" 
 az vmss update-instances --resource-group "$resource_group" --name "$vmss_name" --instance-ids 4
 ```
 
-In this way, only a small amount of instances are being updated at a given point of time. The rest of the instances are not
-touched and will serve the traffic together.
+In this way, only a small number of instances are being updated at a given point of time. The rest of the instances are not
+touched and will serve the traffic as per normal.
 
 ### Work with Image Based Canary Deployment
 
 The above steps demonstrates how we can do canary deployments for VMSS using the custom script extension. VMSS also supports
-custom images, and if specified, all the VM will be created from the given image. Compared to the custom script extension based
+custom images. If specified, all the VMs will be created from the given image. Compared to the custom script extension based
 VMSS, the image based VMSS:
 
 * Provisions faster: the service creation and configuration is done at the image creation process, and when VMSS needs to provision
@@ -280,7 +276,7 @@ VMSS, the image based VMSS:
    can still add a custom script extension if needed.)
 * Service and dependency versions are more stable. The service and dependencies are fetched when the image is created, and all the
    VMs created from the image get the same binaries. If working with custom script extension, you need to be careful if the service
-   or dependencies is upgraded during the VMSS scaling.
+   or dependencies is upgraded when the VMSS is scaling.
 
 [Packer](https://www.packer.io/docs/builders/azure.html) is widely used to create OS images in different cloud platforms. Consider
 if we need to transform the above custom script extension based deployments to image based, we can create the base image using
@@ -366,7 +362,7 @@ base_image_id="$(az image show --resource-group "$resource_group" --name nginx-b
 export updated_image_id="$(az image show --resource-group "$resource_group" --name nginx-updated-image --query id --output tsv)"
 ```
 
-Now that we have two images, we can do the canary deployment as followed:
+Now that we have two images, we can do the canary deployment as follows:
 
 1. Initially, we need to speicify the base image ID when we create the VMSS:
 
@@ -403,9 +399,7 @@ In canary deployment we may roll out new releases to the servers gradually, whic
 that updates the old releases / new releases server ratio. This may not be suitable to automate in limited number
 of Jenkins jobs.
 
-However, if we simplify the process a bit so that the process becomes restrained and standardized, and we can model
-the process with parameterized Jenkins jobs. We have published [Azure Virtual Machine Scale Set](https://plugins.jenkins.io/azure-vmss)
-Jenkins plugin which helps to deploy new images to VMSS.
+However, if we simplify the process, and we can model the process with parameterized Jenkins jobs. We have published [Azure Virtual Machine Scale Set](https://plugins.jenkins.io/azure-vmss) Jenkins plugin which helps to deploy new images to VMSS.
 
 The above image based canary deployment can be modeled as two Jenkins Pipeline jobs:
 
