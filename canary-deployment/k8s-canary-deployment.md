@@ -490,4 +490,4 @@ The above Jenkins Pipelines provide the basic for how we can do canary deploymen
 It does not include error handling nor testing. If you want to use Jenkins
 for canary deployment, you should add extra logic to determine the full status
 of the deployment; handle possible deployment errors; roll back if necessary; and inject tests in between key steps
-before proceed with the subsequent steps. This will be project specific and not covered in this blog.
+before proceeding with the subsequent steps. This will be project specific and not covered in this blog.
