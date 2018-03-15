@@ -8,7 +8,7 @@ Virtual machine scale sets (VMSS) are an Azure compute resource that you can use
 With all VMs configured the same, scale sets are designed to support true autoscale, and no pre-provisioning of VMs 
 is required. So it's easier to build large-scale services that target big compute, large data, and containerized workloads.
 
-VMSS allow you to manage large number of identical VMs with simple instructions, yet allow you to update specific VM. You can build your VMSS with a customized image or publicly available OS images along with VM extension scripts to setup all required environments. When it comes to update existing VMSS, you need to update its configuration with a new image or extension scripts, and then manually trigger the update of the VMSS instances, either all in one instruction, or selectively pick some VMs to be updated.
+VMSS allow you to manage large number of identical VMs with simple instructions, yet allow you to update specific VMs. You can build your VMSS with a customized image or publicly available OS images along with VM extension scripts to setup all required environments. When it comes to update existing VMSS, you need to update its configuration with a new image or extension scripts, and then manually trigger the update of the VMSS instances, either all in one instruction, or selectively pick some VMs to be updated.
 
 The ability to update individual VMs in VMSS allows us to control the number of VMs that will be updated to the new releases,
 i.e., allows us to do canary deployment:
