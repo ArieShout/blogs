@@ -13,7 +13,7 @@ VMSS allow you to manage large number of identical VMs with simple instructions,
 The ability to update individual VMs in VMSS allows us to control the number of VMs that will be updated to the new releases,
 i.e., allows us to do canary deployment:
 
-1. (Existing) Create the initial VMSS which hosts your services.
+1. (Existing) Create the initial VMSS which host your services.
 1. Update the VMSS configuration, either point to new customized image, or update the extension scripts, which contains the
    new release of your services.
 1. Selectively update individual instances to the new release according to the configuration changes.
