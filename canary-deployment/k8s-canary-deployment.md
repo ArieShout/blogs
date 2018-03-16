@@ -4,12 +4,9 @@ Canary deployment is a pattern that rolls out releases to a subset of users or s
 small set of servers, which allows you to test and monitor how the new release works before rolling the changes to the
 rest of the servers.
 
-Kubernetes is the popular Docker container orchestrator in the community. It has clean and separated definition for the
-deployments which represents the project runtime and the services which represents the endpoints the users will access.
-It connects the two types of resources using the labels and selectors. A deployment may be accessed from zero to many
-service endpoints, and at the same time a service may route the traffic to zero to many deployments (just like a load balancer).
+Kubernetes is a popular Docker container orchestrator with clean and separated definition for deployments and services. A deployment represents the project runtime and a service is the publicly accessible endpoint. Kubernetes connects the two types of resources using labels and selectors. A deployment may be accessed from zero to many service endpoints, and at the same time a service may route the traffic to zero to many deployments (just like a load balancer.)
 
-With this label-selector routing mechanism, it's easy to do canary deployment with Kubernetes:
+With this label-selector routing mechanism, it is easy to do canary deployment with Kubernetes:
 
 1. Deploy the initial version of your application to Kubernetes (say, `deployment-A`), and deploy the service endpoint 
    that matches the label of `deployment-A`.
@@ -26,8 +23,8 @@ With this label-selector routing mechanism, it's easy to do canary deployment wi
 
 1. When the new version of your application is validated to be working properly, we can make the full deployment by:
 
-   1. Update the number of replicas in `deployment-B` to the target number
-   1. Delete `deployment-A`
+   1. Updating the number of replicas in `deployment-B` to the target number
+   1. Deleting `deployment-A`
 
 ## Nginx Canary Deployment Example
 
@@ -35,11 +32,11 @@ We will demonstrate the canary deployment with Kubernetes using the public Nginx
 
 ### Prepare the Initial Version
 
-The initial state consists of a deployment of a old version of Nginx, and a service endpoint. This represents the initial
+The initial state consists of a deployment of an old version of Nginx, and a service endpoint. This represents the initial
 state of world we have before we start the canary deployment for the new version.
 
 > Generally, for production applications, you will need to configure the [liveness and readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/), so that the frontend service
-> only routes the traffic to the traffic to the ready and live pods. To simplify the demos here, we didn't include
+> only routes the traffic to the ready and live pods. To simplify the demos here, we didn't include
 > the probes in our configuration. Please refer to the documentation for more details.
 
 ```sh
@@ -88,7 +85,7 @@ Note that:
 * The `replicas` is set to `2` for the deployment, which is the target replicas count for our application.
 
    This means we may only have one replica for the old version, and one replica for the new version (1:1) if we want to
-   preserve the target replicas count. In real world application, the `replicas` may be larger which offers more choices
+   preserve the target replicas count. In real world application, the `replicas` should be larger so as to offer more choices
    of replica ratio.
 
 ### Deploy the New Version
@@ -489,8 +486,8 @@ node {
 
 ### Additional Work
 
-The above Jenkins Pipelines show how we can do canary deployment to Kubernetes with separated Jenkins jobs.
-However, the Pipeline works in ideal case. It doesn't include error handling or testing. If you want to use Jenkins
-for the canary deployment to your canary deployment, you are likely to write extra logic to determine the full status
-of the deployment, handle possible deployment errors, roll back if necessary, and inject tests between key steps
-before proceed with followed steps. This will be project specific and we will not expand here.
+The above Jenkins Pipelines provide the basic for how we can do canary deployment to Kubernetes with multiple Jenkins jobs.
+It does not include error handling nor testing. If you want to use Jenkins
+for canary deployment, you should add extra logic to determine the full status
+of the deployment; handle possible deployment errors; roll back if necessary; and inject tests in between key steps
+before proceeding with the subsequent steps. This will be project specific and not covered in this blog.
