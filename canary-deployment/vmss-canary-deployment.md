@@ -435,3 +435,9 @@ The above image based canary deployment can be modeled as two Jenkins Pipeline j
    ```
 
 As mentioned in the previous example, you need to implement extra logic to test and validate if the new image is working properly.
+
+## Further Reading: Blue-green Deployment
+
+We can also do blue-green deployment on VMSS, in which you have two nearly identical backends, you can upgrade one of them and
+switch the routing to the upgraded backend without interrupting the user traffic. We have prepared a quick start template and
+you can find more details at [Jenkins Blue-green Deployment to VMSS](https://aka.ms/azjenkinsvmssqs).
